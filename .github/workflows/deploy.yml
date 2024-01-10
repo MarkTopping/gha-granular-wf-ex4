@@ -8,6 +8,7 @@ on:
     inputs:
       IgnoreDependencyChain:
         description: 'Bypass dependencies?'
+        type: boolean
         required: true
         default: false
       DeployToDev:
