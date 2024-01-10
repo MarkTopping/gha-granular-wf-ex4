@@ -1,0 +1,121 @@
+name: Deploy
+
+run-name: "#${{ github.run_number }}. Deploy ${{ github.ref_type }} '${{ github.ref_name }}'. Triggered by: ${{ github.triggering_actor }}"
+
+on:
+  # Workflow can be manually triggered
+  workflow_dispatch:
+    
+jobs:
+
+  derive-tag:
+    name: Derive Image Tag
+    runs-on: ubuntu-latest
+    outputs:
+      docker-tag: ${{ steps.output-tag.outputs.docker-tag }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get Short SHA
+        run: echo "git-sha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      
+      - name: Create Docker If Else
+        run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            echo "docker-tag=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "docker-tag=sha-${{ env.git-sha }}" >> $GITHUB_ENV
+          fi
+        
+      - name: Output Tag
+        id: output-tag
+        run: |
+          echo "docker-tag=${{ env.docker-tag }}" >> "$GITHUB_OUTPUT"
+          echo "Deployment triggered on a git ${{ github.ref_type }}, so the Docker Tag has been set to '**${{ env.docker-tag }}'**" >> $GITHUB_STEP_SUMMARY
+
+  
+          
+  deploy-to-dev:
+    name: DEV
+    runs-on: ubuntu-latest
+    needs: [derive-tag]
+    environment: dev
+    steps:
+
+      - name: Grab Image Tag
+        env:
+          docker-tag: ${{ needs.derive-tag.outputs.docker-tag }}
+        run: |
+          echo "determining the image tag based off whatever versioning logic used"
+          echo "tag equals: ${{ env.docker-tag }}"
+          
+      - name: Deploy to Dev
+        run: echo "deploying via helm"
+
+  deploy-to-test:
+    name: TEST
+    runs-on: ubuntu-latest
+    needs: [deploy-to-dev]
+    environment: test
+    steps:
+
+      - name: Grab Image Tag
+        env:
+          docker-tag: ${{ needs.derive-tag.outputs.docker-tag }}
+        run: |
+          echo "determining the image tag based off whatever versioning logic used"
+          echo "tag equals: ${{ env.docker-tag }}"
+    
+      - name: Deploy to Test
+        run: echo "deploying via helm"
+
+  deploy-to-uat:
+    name: UAT
+    runs-on: ubuntu-latest
+    needs: [deploy-to-test]
+    environment: uat
+    steps:
+
+      - name: Grab Image Tag
+        env:
+          docker-tag: ${{ needs.derive-tag.outputs.docker-tag }}
+        run: |
+          echo "determining the image tag based off whatever versioning logic used"
+          echo "tag equals: ${{ env.docker-tag }}"
+          
+      - name: Deploy to UAT
+        run: echo "deploying via helm"
+
+  deploy-to-prd-primary:
+    name: PRD Primary
+    runs-on: ubuntu-latest
+    needs: [deploy-to-uat]
+    environment: prd
+    steps:
+
+      - name: Grab Image Tag
+        env:
+          docker-tag: ${{ needs.derive-tag.outputs.docker-tag }}
+        run: |
+          echo "determining the image tag based off whatever versioning logic used"
+          echo "tag equals: ${{ env.docker-tag }}"
+          
+      - name: Deploy to PRD Primary
+        run: echo "deploying via helm"
+
+  deploy-to-prd-secondary:
+    name: PRD Secondary
+    runs-on: ubuntu-latest
+    needs: [derive-tag]
+    environment: prd
+    steps:
+
+      - name: Grab Image Tag
+        env:
+          docker-tag: ${{ needs.derive-tag.outputs.docker-tag }}
+        run: |
+          echo "determining the image tag based off whatever versioning logic used"
+          echo "tag equals: ${{ env.docker-tag }}"
+          
+      - name: Deploy to PRD Secondary
+        run: echo "deploying via helm"
